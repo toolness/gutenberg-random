@@ -74,5 +74,6 @@ fs.createReadStream(__dirname + '/rdf-files.tar')
   })
   .on('end', function() {
     console.log('total', metadata.length);
-    fs.writeFileSync(__dirname + '/metadata.json', JSON.stringify(metadata));
+    fs.writeFileSync(__dirname + '/metadata.json',
+                     JSON.stringify(metadata, null, 2));
   });
