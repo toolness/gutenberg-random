@@ -4,6 +4,8 @@
   "description": "Experiments with Project Gutenberg.",
   "main": "extract-metadata.js",
   "dependencies": {
+    "express": "4.2.0",
+    "mongoose": "3.8.9",
     "cheerio": "~0.16.0",
     "tar": "~0.1.19",
     "htmlparser2": "~3.7.1",
