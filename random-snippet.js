@@ -1,24 +1,29 @@
 var http = require('http');
+var urlParse = require('url').parse;
 var _ = require('underscore');
 var htmlparser = require('htmlparser2');
 
+var gutenberg = require('./gutenberg');
 var metadata = require('./metadata.json');
 
-var SNIPPET_LENGTH = 1500;
+var MIRROR_URL = 'http://mirror.csclub.uwaterloo.ca/gutenberg/';
+var MIN_PARAGRAPHS_TO_SKIP = 10;
+var MAX_PARAGRAPHS_TO_SKIP = 40;
+var SNIPPET_LENGTH = 140;
 
 var index = _.random(metadata.length - 1);
 var item = metadata[index];
 
-console.log('getting', item);
-
-http.get(item.url, function(res) {
-  if (res.statusCode != 200) {
-    // If it's 307, it's a captcha request.
-    console.log(res.headers.location);
+http.get(gutenberg.getMirrorUrl(MIRROR_URL, item.url), function(res) {
+  if (res.statusCode != 200)
     throw new Error('got status ' + res.statusCode);
-  }
 
   var currTag = null;
+  var paragraphCount = 0;
+  var paragraphsToSkip = _.random(MIN_PARAGRAPHS_TO_SKIP,
+                                  MAX_PARAGRAPHS_TO_SKIP);
+  var currParagraph = '';
+  var foundHeader = false;
   var done = false;
   var paragraphs = [];
   var totalLength = 0;
@@ -26,23 +31,34 @@ http.get(item.url, function(res) {
     if (done) return;
     done = true;
     res.socket.destroy();
+    console.log(paragraphs.join('\n'));
+    console.log('\n-- ' + item.title);
   };
   var parser = new htmlparser.Parser({
     ontext: function(text) {
+      if (!foundHeader) return;
       if (done) return;
       if (currTag != 'p') return;
+      if (paragraphCount < paragraphsToSkip) return;
 
-      text = text.trim();
-      if (!text) return;
-
-      paragraphs.push(text);
-
-      totalLength += text.length;
-
-      onDone();
+      currParagraph += text.trim();
     },
     onopentag: function(name, attribs) {
+      if (/^h[1-6]$/.test(name)) foundHeader = true;
       currTag = name;
+    },
+    onclosetag: function(name) {
+      if (name != 'p') return;
+      paragraphCount++;
+      if (currParagraph) {
+        paragraphs.push(currParagraph);
+
+        totalLength += currParagraph.length;
+        currParagraph = '';
+
+        if (totalLength >= SNIPPET_LENGTH)
+          onDone();
+      }
     }
   });
 

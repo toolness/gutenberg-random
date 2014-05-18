@@ -3,6 +3,8 @@ var _ = require('underscore');
 var tar = require('tar');
 var cheerio = require('cheerio');
 
+var gutenberg = require('./gutenberg');
+
 function findHtmlUrl($) {
   var url = null;
 
@@ -10,9 +12,9 @@ function findHtmlUrl($) {
     if (!/^text\/html/.test($(this).text())) return;
     var file = $(this).parents('pgterms\\:file');
     var candidateUrl = file.attr('rdf:about');
-    if (!/\.html?$/.test(candidateUrl)) return;
 
-    url = candidateUrl;
+    if (gutenberg.isHtmlUrl(candidateUrl))
+      url = candidateUrl;
   });
 
   return url;
