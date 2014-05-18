@@ -51,8 +51,9 @@ function writeEntry(tar, entry) {
     var title = $('dcterms\\:title').text();
     var epoch = findEpoch($);
     var htmlUrl = findHtmlUrl($);
+    var lang = $('dcterms\\:language').text().trim().toLowerCase();
 
-    if (!(title && epoch && htmlUrl)) return;
+    if (!(lang == 'en' && title && epoch && htmlUrl)) return;
 
     metadata.push({
       id: id,
