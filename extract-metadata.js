@@ -4,6 +4,9 @@ var tar = require('tar');
 var cheerio = require('cheerio');
 
 var gutenberg = require('./gutenberg');
+var db = require('./db');
+
+var MAX_EBOOK_ID = 1000;
 
 function findHtmlUrl($) {
   var url = null;
@@ -37,8 +40,6 @@ function findEpoch($) {
   return {start: start, end: end};
 }
 
-var metadata = [];
-
 function writeEntry(tar, entry) {
   var chunks = [];
   entry.on('data', function(chunk) {
@@ -48,33 +49,43 @@ function writeEntry(tar, entry) {
     var rdf = Buffer.concat(chunks).toString('utf8');
     var $ = cheerio.load(rdf);
     var id = $('pgterms\\:ebook').attr('rdf:about');
-    var title = $('dcterms\\:title').text();
+    var title = $('dcterms\\:title').text().trim();
     var epoch = findEpoch($);
     var htmlUrl = findHtmlUrl($);
     var lang = $('dcterms\\:language').text().trim().toLowerCase();
 
     if (!(lang == 'en' && title && epoch && htmlUrl)) return;
 
-    metadata.push({
+    entry.pause();
+
+    var book = new db.Book({
       id: id,
       title: title,
       epoch: epoch,
       url: htmlUrl
     });
-    //console.log('  ', findEpoch($), title, htmlUrl);
+    book.save(function(err) {
+      if (err) throw err;
+
+      console.log('saved ' + id + ' (' + title.slice(0, 30) + ')');
+      entry.resume();
+    });
   });
 }
 
-fs.createReadStream(__dirname + '/rdf-files.tar')
-  .pipe(tar.Parse())
-  .on('entry', function(entry) {
-    var match = entry.path.match(/^cache\/epub\/([0-9]+)\//);
-    if (match && match[1].length < 5) {
-      writeEntry(this, entry);
-    }
-  })
-  .on('end', function() {
-    console.log('total', metadata.length);
-    fs.writeFileSync(__dirname + '/metadata.json',
-                     JSON.stringify(metadata, null, 2));
-  });
+db.Book.remove({}, function(err) {
+  if (err) throw err;
+
+  fs.createReadStream(__dirname + '/rdf-files.tar')
+    .pipe(tar.Parse())
+    .on('entry', function(entry) {
+      var match = entry.path.match(/^cache\/epub\/([0-9]+)\//);
+      if (match && parseInt(match[1]) < MAX_EBOOK_ID) {
+        writeEntry(this, entry);
+      }
+    })
+    .on('end', function() {
+      console.log('bye');
+      db.disconnect();
+    });
+});
