@@ -47,6 +47,7 @@ function writeEntry(tar, entry) {
   entry.on('end', function() {
     var rdf = Buffer.concat(chunks).toString('utf8');
     var $ = cheerio.load(rdf);
+    var id = $('pgterms\\:ebook').attr('rdf:about');
     var title = $('dcterms\\:title').text();
     var epoch = findEpoch($);
     var htmlUrl = findHtmlUrl($);
@@ -54,6 +55,7 @@ function writeEntry(tar, entry) {
     if (!(title && epoch && htmlUrl)) return;
 
     metadata.push({
+      id: id,
       title: title,
       epoch: epoch,
       url: htmlUrl
